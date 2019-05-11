@@ -2,7 +2,7 @@
 <html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8">
-    <meta name="google-signin-clientid" content="19264160664-vr8ip7ef18ls54n7jmk4s16s156ngl10.apps.googleusercontent.com">
+    <meta name="google-signin-clientid" content={{client_id}}>
     <title></title>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
     </script>
@@ -27,17 +27,16 @@
     <script>
       function onSignIn(googleUser) {
         var authResponse = googleUser.getAuthResponse(true);
-        var code = authResponse.id_token;
-        if (code){
+        var token = authResponse.id_token;
           //Hide the signin button now that the user is authorized
           $('#signinButton').attr('style','display: none');
 
           //Send the one-time-use code to the server, if the server responds, write
           $.ajax({
             type: 'POST',
-            url: '/gconnect?state={{STATE}}',
+            url: '/gconnect',
             processData: false,
-            data: code,
+            data: token,
             contentType: 'application/octet-stream; charset=utf-8',
             success: function(result){
               //Handle or verify the server response if necessary
@@ -49,10 +48,9 @@
               }
             }
           })
-        }
     }
       function onSignInFailure() {
-        console.log('There was an error: ' + authResult['error']);
+        console.log('There was an error signing in');
     }
 
     </script>
