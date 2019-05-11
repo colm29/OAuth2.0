@@ -1,10 +1,21 @@
+#!/usr/bin/env python2
 from flask import Flask, render_template, request, redirect,jsonify, url_for, flash
 app = Flask(__name__)
 
 from sqlalchemy import create_engine, asc
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Restaurant, MenuItem
+import random, string
+from flask import session as login_session
 
+#oauth imports
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from flask import make_response
+import json
+
+CLIENT_ID = json.loads(
+  open('client_secrets.json', 'r').read())['web']['client_id']
 
 #Connect to Database and create database session
 engine = create_engine('sqlite:///restaurantmenu.db')
@@ -13,6 +24,51 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+# Create a state token to prevent request forgery
+# Store it in the session for later validation
+@app.route('/login')
+def showLogin():
+  return render_template('login.html', client_id = CLIENT_ID)
+
+# Verify Google Access Token
+@app.route('/gconnect', methods = ['POST'])
+def gconnect():
+  token = request.data
+  try:
+    idinfo = id_token.verify_oauth2_token(token, requests.Request(), CLIENT_ID)
+
+    if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+      raise ValueError('Wrong issuer')
+
+    #ID token is valid.  Get the user's Google account ID from the decoded token
+    userid = idinfo['sub']
+    if login_session.get('userid') == userid:
+      response = make_response(json.dumps('Current user is already logged in.'), 200)
+      response.headers['Content-Type'] = 'application/json'
+      return response
+    else:
+      login_session['userid'] = userid
+
+      login_session['username'] = idinfo['name']
+      login_session['picture'] = idinfo['picture']
+      login_session['email'] = idinfo['email']
+
+      output = ''
+      output += '<h1>Welcome, '
+      output += login_session['username']
+      output += '!</h1>'
+      output += '<img src="'
+      output += login_session['picture']
+      output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
+      flash("you are now logged in as %s" % login_session['username'])
+      print "done!"
+      return output
+
+  except ValueError as e:
+    #Invalid token
+    response = make_response(json.dumps(e),50)
+    response.headers['Content-Type'] = 'application/json'
+    return response  
 
 #JSON APIs to view Restaurant Information
 @app.route('/restaurant/<int:restaurant_id>/menu/JSON')
